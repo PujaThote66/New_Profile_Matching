@@ -1,14 +1,19 @@
-streamlit
-sentence-transformers
-rank-bm25
-spacy
-numpy
-pandas
-matplotlib
-scikit-learn
-en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl   
-python-dotenv
-google-generativeai
 fastapi
 uvicorn
 sqlalchemy
+requests
+pandas
+
+# ML stack (PINNED)
+numpy==1.26.4
+scipy==1.11.4
+scikit-learn==1.3.2
+sentence-transformers==2.6.1
+
+# spaCy stack (PINNED)
+spacy==3.7.4
+thinc==8.2.2
+blis==0.7.11
+
+google-generativeai
+python-dotenv
