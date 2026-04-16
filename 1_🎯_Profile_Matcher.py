@@ -1,21 +1,15 @@
-
 import streamlit as st
 import pandas as pd
-from matcher import score_candidates
-import spacy
-import os
+import requests
 
-# ---------------------------
-# Ensure spaCy model is available
-# ---------------------------
-try:
-    spacy.load("en_core_web_sm")
-except:
-    os.system("python -m spacy download en_core_web_sm")
+# ------------------------------------------------
+# Backend API
+# ------------------------------------------------
+API_BASE_URL = "https://profile-matching-api.onrender.com"
 
-# ---------------------------
+# ------------------------------------------------
 # Page Config
-# ---------------------------
+# ------------------------------------------------
 st.set_page_config(
     page_title="Profile Matcher",
     layout="wide"
@@ -24,18 +18,18 @@ st.set_page_config(
 st.title("🎯 Profile Matching")
 st.write("Works for **any job role** using automatic JD keyword extraction")
 
-# ---------------------------
+# ------------------------------------------------
 # Job Description
-# ---------------------------
+# ------------------------------------------------
 jd = st.text_area(
     "🧾 Job Description",
     height=180,
     placeholder="Paste the job description here..."
 )
 
-# ---------------------------
+# ------------------------------------------------
 # Algorithm Selection
-# ---------------------------
+# ------------------------------------------------
 st.markdown("### ⚙️ Matching Algorithm")
 
 selected_algo = st.radio(
@@ -47,9 +41,9 @@ selected_algo = st.radio(
     ]
 )
 
-# ---------------------------
+# ------------------------------------------------
 # Candidate Count Selection
-# ---------------------------
+# ------------------------------------------------
 st.markdown("### 👥 Candidate Selection")
 
 num_candidates = st.number_input(
@@ -60,9 +54,9 @@ num_candidates = st.number_input(
     step=1
 )
 
-# ---------------------------
+# ------------------------------------------------
 # Candidate Profiles
-# ---------------------------
+# ------------------------------------------------
 st.markdown("### 📄 Candidate Profiles")
 
 candidates = []
@@ -80,9 +74,9 @@ for i in range(num_candidates):
 
     candidates.append(profile)
 
-# ---------------------------
+# ------------------------------------------------
 # Match Button with Validation
-# ---------------------------
+# ------------------------------------------------
 if st.button("🔍 Match Candidates"):
 
     # ❌ Case 1: JD empty
@@ -90,7 +84,7 @@ if st.button("🔍 Match Candidates"):
         st.error("❌ Job Description cannot be empty.")
         st.stop()
 
-    # ❌ Case 2: No candidate profiles entered
+    # ❌ Case 2: All candidates empty
     elif len(empty_indices) == num_candidates:
         st.error(
             "❌ No candidate profiles provided.\n\n"
@@ -98,24 +92,41 @@ if st.button("🔍 Match Candidates"):
         )
         st.stop()
 
-    # ⚠️ Case 3: Partial candidate profiles missing
+    # ⚠️ Case 3: Some candidates missing
     elif empty_indices:
         st.warning(
-            f"⚠️ You selected **{num_candidates} candidates**, but "
-            f"profiles are missing for: "
+            f"⚠️ Profiles missing for candidates: "
             f"{', '.join(map(str, empty_indices))}.\n\n"
-            "👉 Please fill **all candidate profiles** before matching."
+            "👉 Please fill all candidate profiles."
         )
         st.stop()
 
-    # ✅ Case 4: All inputs valid
+    # ✅ Valid → Call backend
     else:
+        payload = {
+            "job_description": jd,
+            "candidates": candidates,
+            "algorithm": selected_algo
+        }
+
         with st.spinner("Matching candidates..."):
-            results, extracted_keywords = score_candidates(
-                jd,
-                candidates,
-                selected_algo
-            )
+            try:
+                response = requests.post(
+                    f"{API_BASE_URL}/match",
+                    json=payload,
+                    timeout=120
+                )
+            except Exception as e:
+                st.error(f"Backend connection failed: {e}")
+                st.stop()
+
+        if response.status_code != 200:
+            st.error(f"API error: {response.text}")
+            st.stop()
+
+        data = response.json()
+        results = data["results"]
+        extracted_keywords = data.get("extracted_keywords", [])
 
         df = (
             pd.DataFrame(results)
@@ -123,19 +134,17 @@ if st.button("🔍 Match Candidates"):
             .reset_index(drop=True)
         )
 
-        # ======================================================
-        # ✅ NEW: Store shared data for multi‑page usage
-        # ======================================================
+        # ------------------------------------------------
+        # Store for other pages
+        # ------------------------------------------------
         st.session_state["jd"] = jd
         st.session_state["candidates"] = candidates
 
-        # Store FULL results per algorithm
         if "algorithm_results" not in st.session_state:
             st.session_state["algorithm_results"] = {}
 
         st.session_state["algorithm_results"][selected_algo] = df
 
-        # Store TOP candidates per algorithm (handles ties)
         top_score = df["final_score"].max()
         top_candidates = df[df["final_score"] == top_score]["candidate"].tolist()
 
@@ -144,25 +153,21 @@ if st.button("🔍 Match Candidates"):
 
         st.session_state["top_candidates"][selected_algo] = top_candidates
 
-        # ======================================================
-        # UI Rendering
-        # ======================================================
-
-        # Extracted Keywords
+        # ------------------------------------------------
+        # UI Output
+        # ------------------------------------------------
         st.subheader("📌 Extracted JD Key Phrases")
         if extracted_keywords:
             st.write(", ".join(extracted_keywords))
         else:
-            st.info("No significant key phrases could be extracted from the JD.")
+            st.info("No key phrases extracted.")
 
-        # Results Table
         st.subheader("✅ Candidate Scores")
         st.dataframe(
             df.drop(columns=["matched_phrases"]),
             use_container_width=True
         )
 
-        # Best Match / Tie Handling (UI)
         if len(top_candidates) == 1:
             st.success(
                 f"🏆 Best Match: **{top_candidates[0]}** "
