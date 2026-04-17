@@ -1,53 +1,33 @@
-
-import os
-from dotenv import load_dotenv
 import google.generativeai as genai
 
 
 # ------------------------------------------------------
-# Load environment variables
+# ✅ Select compatible Gemini model (NO GLOBAL STATE)
 # ------------------------------------------------------
-load_dotenv()
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-if not GEMINI_API_KEY:
-    raise RuntimeError(
-        "GEMINI_API_KEY not found. Please set it in .env or environment variables."
-    )
-
-
-# ------------------------------------------------------
-# Configure Gemini
-# ------------------------------------------------------
-genai.configure(api_key=GEMINI_API_KEY)
-
-
-# ------------------------------------------------------
-# ✅ Auto‑select a compatible model (IMPORTANT FIX)
-# ------------------------------------------------------
-def get_compatible_model():
+def get_compatible_model(api_key: str):
     """
-    Dynamically selects the first model that supports text generation.
-    Works across ALL google-generativeai SDK versions.
+    Dynamically selects the first Gemini model that supports text generation.
+    The API key is provided per request (from Streamlit UI).
     """
 
-    print("gen ai model list : ",genai.list_models())
+    genai.configure(api_key=api_key)
+
     for m in genai.list_models():
         if "generateContent" in m.supported_generation_methods:
-            print("selected model is : ",genai.GenerativeModel(m.name))
             return genai.GenerativeModel(m.name)
 
     raise RuntimeError("No compatible Gemini model found for generateContent.")
 
 
-# Initialize model safely
-model = get_compatible_model()
+# ------------------------------------------------------
+# ✅ Interview Question Generator (UPDATED)
+# ------------------------------------------------------
+def generate_interview_questions(
+    jd: str,
+    resume: str,
+    api_key: str
+) -> str:
 
-# ------------------------------------------------------
-# Interview Question Generator
-# ------------------------------------------------------
-def generate_interview_questions(jd: str, resume: str) -> str:
     if not jd.strip():
         raise ValueError("Job Description is empty.")
 
@@ -89,7 +69,9 @@ L1 Technical Questions:
 """
 
     try:
+        model = get_compatible_model(api_key)
         response = model.generate_content(prompt)
+
     except Exception as e:
         raise RuntimeError(f"Gemini API call failed: {str(e)}")
 

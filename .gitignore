@@ -1,3 +1,39 @@
-/final_matcher.py
-/test_gemini.py
-/__pycache__
+# -----------------------------
+# Python cache
+# -----------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# -----------------------------
+# Virtual environments
+# -----------------------------
+venv/
+.venv/
+env/
+ENV/
+
+# -----------------------------
+# Database files
+# -----------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# -----------------------------
+# Local / test files
+# -----------------------------
+final_matcher.py
+test_gemini.py
+
+# -----------------------------
+# Environment variables
+# -----------------------------
+.env
+
+# -----------------------------
+# OS-specific files
+# -----------------------------
+.DS_Store
+Thumbs.db
